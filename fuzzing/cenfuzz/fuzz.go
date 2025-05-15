@@ -7,6 +7,7 @@ import (
 	"time"
 	"crypto/tls"
 	"io"
+	"context"
 
 	"github.com/r-andlab/quic-go/internal/protocol"
 	"github.com/r-andlab/quic-go/internal/wire"
