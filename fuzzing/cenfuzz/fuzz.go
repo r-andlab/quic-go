@@ -1,4 +1,4 @@
-package header
+package cenfuzz
 
 import (
 	"bytes"
@@ -126,4 +126,41 @@ func fuzzVNP(data []byte) int {
 	}
 	wire.ComposeVersionNegotiation(src, dest, versions)
 	return sendToServer(data, "127.0.0.1") // Adjust this as needed
+}
+
+// bad place for this function but I will find a better one later this is the function that will send a single packet that is unfuzzed the requested domain 
+func SendInitialQUICPacket(target string) error {
+	// Resolve the target address (QUIC uses UDP)
+	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(target, "443"))
+	if err != nil {
+		return fmt.Errorf("failed to resolve address: %w", err)
+	}
+
+	// Create a UDP socket
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	if err != nil {
+		return fmt.Errorf("failed to create UDP socket: %w", err)
+	}
+	defer udpConn.Close()
+
+	// Set up minimal TLS config to enable QUIC Initial packet generation
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"h3"},
+	}
+
+	// Optionally add a short timeout to avoid blocking
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// This triggers the QUIC stack to send an Initial packet
+	conn, err := quic.Dial(ctx, udpConn, udpAddr, tlsConf, nil)
+	if err != nil {
+		fmt.Println("Server responded with an error (which is expected):", err)
+		return nil // Still success — Initial was sent
+	}
+	defer conn.CloseWithError(0, "done")
+
+	fmt.Println("Server completed the QUIC handshake (Initial succeeded)")
+	return nil
 }
