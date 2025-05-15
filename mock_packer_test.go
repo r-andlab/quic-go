@@ -13,9 +13,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	ackhandler "github.com/quic-go/quic-go/internal/ackhandler"
-	protocol "github.com/quic-go/quic-go/internal/protocol"
-	qerr "github.com/quic-go/quic-go/internal/qerr"
+	ackhandler "github.com/r-andlab/quic-go/internal/ackhandler"
+	protocol "github.com/r-andlab/quic-go/internal/protocol"
+	qerr "github.com/r-andlab/quic-go/internal/qerr"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	wire "github.com/quic-go/quic-go/internal/wire"
+	wire "github.com/r-andlab/quic-go/internal/wire"
 	gomock "go.uber.org/mock/gomock"
 )
 

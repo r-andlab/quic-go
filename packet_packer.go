@@ -8,11 +8,11 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/ackhandler"
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/r-andlab/quic-go/internal/ackhandler"
+	"github.com/r-andlab/quic-go/internal/handshake"
+	"github.com/r-andlab/quic-go/internal/protocol"
+	"github.com/r-andlab/quic-go/internal/qerr"
+	"github.com/r-andlab/quic-go/internal/wire"
 )
 
 var errNothingToPack = errors.New("nothing to pack")
