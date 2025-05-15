@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/http3"
-	quicproxy "github.com/quic-go/quic-go/integrationtests/tools/proxy"
+	"github.com/r-andlab/quic-go/http3"
+	quicproxy "github.com/r-andlab/quic-go/integrationtests/tools/proxy"
 
 	"github.com/stretchr/testify/require"
 )

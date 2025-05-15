@@ -6,9 +6,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/quic-go/quic-go"
-	mockquic "github.com/quic-go/quic-go/internal/mocks/quic"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/r-andlab/quic-go"
+	mockquic "github.com/r-andlab/quic-go/internal/mocks/quic"
+	"github.com/r-andlab/quic-go/quicvarint"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

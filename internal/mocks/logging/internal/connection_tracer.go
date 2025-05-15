@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	logging "github.com/quic-go/quic-go/logging"
+	logging "github.com/r-andlab/quic-go/logging"
 	gomock "go.uber.org/mock/gomock"
 )
 

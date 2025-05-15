@@ -3,7 +3,7 @@ package http3
 import (
 	"fmt"
 
-	"github.com/quic-go/quic-go"
+	"github.com/r-andlab/quic-go"
 )
 
 type ErrCode quic.ApplicationErrorCode

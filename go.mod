@@ -8,7 +8,6 @@ require (
 	github.com/onsi/gomega v1.27.6
 	github.com/prometheus/client_golang v1.19.1
 	github.com/quic-go/qpack v0.5.1
-	github.com/quic-go/quic-go v0.51.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/mock v0.5.0
 	golang.org/x/crypto v0.26.0

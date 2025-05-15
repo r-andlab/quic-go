@@ -4,8 +4,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	. "github.com/quic-go/quic-go/logging"
+	"github.com/r-andlab/quic-go/internal/protocol"
+	. "github.com/r-andlab/quic-go/logging"
 
 	"github.com/stretchr/testify/require"
 )
