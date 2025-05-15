@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"crypto/tls"
+	"io"
 
 	"github.com/r-andlab/quic-go/internal/protocol"
 	"github.com/r-andlab/quic-go/internal/wire"
+	"github.com/r-andlab/quic-go"
 )
 
 const version = protocol.Version1
@@ -129,38 +132,51 @@ func fuzzVNP(data []byte) int {
 }
 
 // bad place for this function but I will find a better one later this is the function that will send a single packet that is unfuzzed the requested domain 
-func SendInitialQUICPacket(target string) error {
-	// Resolve the target address (QUIC uses UDP)
+func SendInitialQUICPacket(target string) ([]byte, error) {
+	// Resolve the target UDP address
 	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(target, "443"))
 	if err != nil {
-		return fmt.Errorf("failed to resolve address: %w", err)
+		return nil, fmt.Errorf("failed to resolve address: %w", err)
 	}
 
-	// Create a UDP socket
+	// Bind a UDP socket locally
 	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
-		return fmt.Errorf("failed to create UDP socket: %w", err)
+		return nil, fmt.Errorf("failed to create UDP socket: %w", err)
 	}
 	defer udpConn.Close()
 
-	// Set up minimal TLS config to enable QUIC Initial packet generation
+	// Set up minimal TLS config (no cert verification)
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"h3"},
 	}
 
-	// Optionally add a short timeout to avoid blocking
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// Context with timeout for dialing
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// This triggers the QUIC stack to send an Initial packet
+	// Trigger QUIC handshake by dialing
 	conn, err := quic.Dial(ctx, udpConn, udpAddr, tlsConf, nil)
 	if err != nil {
-		fmt.Println("Server responded with an error (which is expected):", err)
-		return nil // Still success — Initial was sent
+		return nil, fmt.Errorf("dial error: %w", err)
 	}
 	defer conn.CloseWithError(0, "done")
 
-	fmt.Println("Server completed the QUIC handshake (Initial succeeded)")
-	return nil
+	// Open a bidirectional stream
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("stream open error: %w", err)
+	}
+	defer stream.Close()
+
+	// Attempt to read server response
+	buf := make([]byte, 2048)
+	stream.SetReadDeadline(time.Now().Add(2 * time.Second))
+	n, err := stream.Read(buf)
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("read error: %w", err)
+	}
+
+	return buf[:n], nil
 }
