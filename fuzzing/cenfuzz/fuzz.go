@@ -18,37 +18,42 @@ const version = protocol.Version1
 const PrefixLen = 1
 
 // Fuzz sends malformed QUIC headers to a real-world QUIC server via UDP and performs in-memory parsing checks.
-func Fuzz(data []byte, targetHost string) int {
+func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	if len(data) < PrefixLen {
-		return 0
+		return nil, fmt.Errorf("data too short")
 	}
+
 	connIDLen := int(data[0] % 21)
 	data = data[PrefixLen:]
 
-	if wire.IsVersionNegotiationPacket(data) {
-		return fuzzVNP(data)
-	}
+	// // Version Negotiation Packet
+	// if wire.IsVersionNegotiationPacket(data) {
+	// 	return fuzzVNP(data)
+	// }
 
 	connID, err := wire.ParseConnectionID(data, connIDLen)
 	if err != nil {
-		return 0
+		return nil, fmt.Errorf("invalid connection ID: %w", err)
 	}
 
-	if !wire.IsLongHeaderPacket(data[0]) {
-		wire.ParseShortHeader(data, connIDLen)
-		return sendToServer(data, targetHost)
-	}
+	// // Short Header Packet
+	// if !wire.IsLongHeaderPacket(data[0]) {
+	// 	_, _ = wire.ParseShortHeader(data, connIDLen) // safe to ignore output for now
+	// 	return sendToServer(data, targetHost)
+	// }
 
+	// Long Header
 	is0RTTPacket := wire.Is0RTTPacket(data)
 	hdr, _, _, err := wire.ParsePacket(data)
 	if err != nil {
-		return 0
+		return nil, fmt.Errorf("packet parse failed: %w", err)
 	}
+
 	if hdr.DestConnectionID != connID {
-		panic(fmt.Sprintf("Expected connection IDs to match: %s vs %s", hdr.DestConnectionID, connID))
+		return nil, fmt.Errorf("DCID mismatch: %s vs %s", hdr.DestConnectionID, connID)
 	}
 	if (hdr.Type == protocol.PacketType0RTT) != is0RTTPacket {
-		panic("inconsistent 0-RTT packet detection")
+		return nil, fmt.Errorf("inconsistent 0-RTT packet detection")
 	}
 
 	var extHdr *wire.ExtendedHeader
@@ -57,7 +62,7 @@ func Fuzz(data []byte, targetHost string) int {
 	} else {
 		extHdr, err = hdr.ParseExtended(data)
 		if err != nil {
-			return 0
+			return nil, fmt.Errorf("failed to parse extended header: %w", err)
 		}
 	}
 
@@ -67,70 +72,70 @@ func Fuzz(data []byte, targetHost string) int {
 
 	b, err := extHdr.Append(nil, version)
 	if err != nil {
+		// If append fails due to conn ID length, consider non-fatal
 		if hdr.DestConnectionID.Len() <= protocol.MaxConnIDLen && hdr.SrcConnectionID.Len() <= protocol.MaxConnIDLen {
-			panic(err)
+			return nil, fmt.Errorf("append failed: %w", err)
 		}
-		return 0
+		return nil, nil // packet not sent
 	}
 
 	if hdr.Type != protocol.PacketTypeRetry {
 		expLen := extHdr.GetLength(version)
 		if expLen != protocol.ByteCount(len(b)) {
-			panic(fmt.Sprintf("inconsistent header length: %#v. Expected %d, got %d", extHdr, expLen, len(b)))
+			return nil, fmt.Errorf("inconsistent header length: expected %d, got %d", expLen, len(b))
 		}
 	}
 
 	return sendToServer(data, targetHost)
 }
 
-func sendToServer(data []byte, targetHost string) int {
+
+func sendToServer(data []byte, targetHost string) ([]byte, error) {
 	target := net.JoinHostPort(targetHost, "443")
 	udpAddr, err := net.ResolveUDPAddr("udp", target)
 	if err != nil {
-		fmt.Println("Failed to resolve address:", err)
-		return 0
+		return nil, fmt.Errorf("failed to resolve address: %w", err)
 	}
 
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
-		fmt.Println("Failed to dial UDP:", err)
-		return 0
+		return nil, fmt.Errorf("failed to dial UDP: %w", err)
 	}
 	defer conn.Close()
 
 	_, err = conn.Write(data)
 	if err != nil {
-		fmt.Println("Failed to write packet:", err)
-		return 0
+		return nil, fmt.Errorf("failed to write packet: %w", err)
 	}
 
+	// Attempt to read server response
 	buf := make([]byte, 1500)
 	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	n, _, err := conn.ReadFrom(buf)
-	if err == nil && n > 0 {
-		fmt.Printf("Received %d bytes in response\n", n)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
-	return 1
+	return buf[:n], nil
 }
 
-func fuzzVNP(data []byte) int {
-	connID, err := wire.ParseConnectionID(data, 0)
-	if err != nil {
-		return 0
-	}
-	dest, src, versions, err := wire.ParseVersionNegotiationPacket(data)
-	if err != nil {
-		return 0
-	}
-	if !bytes.Equal(dest, connID.Bytes()) {
-		panic("connection IDs don't match")
-	}
-	if len(versions) == 0 {
-		panic("no versions")
-	}
-	wire.ComposeVersionNegotiation(src, dest, versions)
-	return sendToServer(data, "127.0.0.1") // Adjust this as needed
-}
+// func fuzzVNP(data []byte) int {
+// 	connID, err := wire.ParseConnectionID(data, 0)
+// 	if err != nil {
+// 		return 0
+// 	}
+// 	dest, src, versions, err := wire.ParseVersionNegotiationPacket(data)
+// 	if err != nil {
+// 		return 0
+// 	}
+// 	if !bytes.Equal(dest, connID.Bytes()) {
+// 		panic("connection IDs don't match")
+// 	}
+// 	if len(versions) == 0 {
+// 		panic("no versions")
+// 	}
+// 	wire.ComposeVersionNegotiation(src, dest, versions)
+// 	return sendToServer(data, "127.0.0.1") // Adjust this as needed
+// }
 
 // bad place for this function but I will find a better one later this is the function that will send a single packet that is unfuzzed the requested domain 
 func SendInitialQUICPacket(target string) ([]byte, error) {
