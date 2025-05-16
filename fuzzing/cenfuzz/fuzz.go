@@ -1,7 +1,6 @@
 package cenfuzz
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"time"
