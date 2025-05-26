@@ -18,6 +18,7 @@ const PrefixLen = 1
 
 // Fuzz sends malformed QUIC headers to a real-world QUIC server via UDP and performs in-memory parsing checks.
 func Fuzz(data []byte, targetHost string) ([]byte, error) {
+	fmt.Println("this hit")
 	if len(data) < PrefixLen {
 		return nil, fmt.Errorf("data too short")
 	}
@@ -139,6 +140,7 @@ func sendToServer(data []byte, targetHost string) ([]byte, error) {
 
 // bad place for this function but I will find a better one later this is the function that will send a single packet that is unfuzzed the requested domain 
 func SendInitialQUICPacket(target string) ([]byte, error) {
+	fmt.Println("this hit")
 	// Resolve the target UDP address
 	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(target, "443"))
 	if err != nil {
