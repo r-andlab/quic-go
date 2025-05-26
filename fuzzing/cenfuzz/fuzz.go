@@ -20,7 +20,7 @@ const PrefixLen = 1
 func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	fmt.Println("this hit")
 	if len(data) < PrefixLen {
-		fmt.Println("Error")
+		fmt.Println("data too short")
 		return nil, fmt.Errorf("data too short")
 	}
 
@@ -34,7 +34,7 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 
 	connID, err := wire.ParseConnectionID(data, connIDLen)
 	if err != nil {
-		fmt.Println("Error")
+		fmt.Println("invalid connection ID")
 		return nil, fmt.Errorf("invalid connection ID: %w", err)
 	}
 
@@ -48,16 +48,16 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	is0RTTPacket := wire.Is0RTTPacket(data)
 	hdr, _, _, err := wire.ParsePacket(data)
 	if err != nil {
-		fmt.Println("Error")
+		fmt.Println("packet parse failed")
 		return nil, fmt.Errorf("packet parse failed: %w", err)
 	}
 
 	if hdr.DestConnectionID != connID {
-		fmt.Println("Error")
+		fmt.Println("DCID mismatch:")
 		return nil, fmt.Errorf("DCID mismatch: %s vs %s", hdr.DestConnectionID, connID)
 	}
 	if (hdr.Type == protocol.PacketType0RTT) != is0RTTPacket {
-		fmt.Println("Error")
+		fmt.Println("inconsistent 0-RTT packet detection")
 		return nil, fmt.Errorf("inconsistent 0-RTT packet detection")
 	}
 
@@ -67,7 +67,7 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	} else {
 		extHdr, err = hdr.ParseExtended(data)
 		if err != nil {
-			fmt.Println("Error")
+			fmt.Println("failed to parse extended header")
 			return nil, fmt.Errorf("failed to parse extended header: %w", err)
 		}
 	}
@@ -80,7 +80,7 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	if err != nil {
 		// If append fails due to conn ID length, consider non-fatal
 		if hdr.DestConnectionID.Len() <= protocol.MaxConnIDLen && hdr.SrcConnectionID.Len() <= protocol.MaxConnIDLen {
-			fmt.Println("Error")
+			fmt.Println("append failed")
 			return nil, fmt.Errorf("append failed: %w", err)
 		}
 		fmt.Println("Error most probable area")
@@ -90,7 +90,7 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	if hdr.Type != protocol.PacketTypeRetry {
 		expLen := extHdr.GetLength(version)
 		if expLen != protocol.ByteCount(len(b)) {
-			fmt.Println("Error")
+			fmt.Println("inconsistent header length: expected")
 			return nil, fmt.Errorf("inconsistent header length: expected %d, got %d", expLen, len(b))
 		}
 	}
