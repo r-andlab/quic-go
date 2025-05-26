@@ -20,6 +20,7 @@ const PrefixLen = 1
 func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	fmt.Println("this hit")
 	if len(data) < PrefixLen {
+		fmt.Println("Error")
 		return nil, fmt.Errorf("data too short")
 	}
 
@@ -33,6 +34,7 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 
 	connID, err := wire.ParseConnectionID(data, connIDLen)
 	if err != nil {
+		fmt.Println("Error")
 		return nil, fmt.Errorf("invalid connection ID: %w", err)
 	}
 
@@ -46,13 +48,16 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	is0RTTPacket := wire.Is0RTTPacket(data)
 	hdr, _, _, err := wire.ParsePacket(data)
 	if err != nil {
+		fmt.Println("Error")
 		return nil, fmt.Errorf("packet parse failed: %w", err)
 	}
 
 	if hdr.DestConnectionID != connID {
+		fmt.Println("Error")
 		return nil, fmt.Errorf("DCID mismatch: %s vs %s", hdr.DestConnectionID, connID)
 	}
 	if (hdr.Type == protocol.PacketType0RTT) != is0RTTPacket {
+		fmt.Println("Error")
 		return nil, fmt.Errorf("inconsistent 0-RTT packet detection")
 	}
 
@@ -62,6 +67,7 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	} else {
 		extHdr, err = hdr.ParseExtended(data)
 		if err != nil {
+			fmt.Println("Error")
 			return nil, fmt.Errorf("failed to parse extended header: %w", err)
 		}
 	}
@@ -74,14 +80,17 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	if err != nil {
 		// If append fails due to conn ID length, consider non-fatal
 		if hdr.DestConnectionID.Len() <= protocol.MaxConnIDLen && hdr.SrcConnectionID.Len() <= protocol.MaxConnIDLen {
+			fmt.Println("Error")
 			return nil, fmt.Errorf("append failed: %w", err)
 		}
+		fmt.Println("Error most probable area")
 		return nil, nil // packet not sent
 	}
 
 	if hdr.Type != protocol.PacketTypeRetry {
 		expLen := extHdr.GetLength(version)
 		if expLen != protocol.ByteCount(len(b)) {
+			fmt.Println("Error")
 			return nil, fmt.Errorf("inconsistent header length: expected %d, got %d", expLen, len(b))
 		}
 	}
@@ -140,7 +149,6 @@ func sendToServer(data []byte, targetHost string) ([]byte, error) {
 
 // bad place for this function but I will find a better one later this is the function that will send a single packet that is unfuzzed the requested domain 
 func SendInitialQUICPacket(target string) ([]byte, error) {
-	fmt.Println("this hit")
 	// Resolve the target UDP address
 	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(target, "443"))
 	if err != nil {
