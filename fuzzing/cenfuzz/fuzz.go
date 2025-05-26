@@ -114,6 +114,7 @@ func sendToServer(data []byte, targetHost string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
+	fmt.Println("buf = ", buf)
 	return buf[:n], nil
 }
 
@@ -183,5 +184,6 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 		return nil, fmt.Errorf("read error: %w", err)
 	}
 
+	fmt.Println("initial quic buf = ", buf)
 	return buf[:n], nil
 }
