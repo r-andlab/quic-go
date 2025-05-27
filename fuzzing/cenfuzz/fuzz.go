@@ -154,12 +154,14 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 	// Resolve the target UDP address
 	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(target, "443"))
 	if err != nil {
+		fmt.Println("failed to resolve address")
 		return nil, fmt.Errorf("failed to resolve address: %w", err)
 	}
 
 	// Bind a UDP socket locally
 	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
+		fmt.Println("failed to create UDP socket")
 		return nil, fmt.Errorf("failed to create UDP socket: %w", err)
 	}
 	defer udpConn.Close()
@@ -177,6 +179,7 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 	// Trigger QUIC handshake by dialing
 	conn, err := quic.Dial(ctx, udpConn, udpAddr, tlsConf, nil)
 	if err != nil {
+		fmt.Println("dial error")
 		return nil, fmt.Errorf("dial error: %w", err)
 	}
 	defer conn.CloseWithError(0, "done")
@@ -184,6 +187,7 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 	// Open a bidirectional stream
 	stream, err := conn.OpenStreamSync(ctx)
 	if err != nil {
+		fmt.Println("stream open error")
 		return nil, fmt.Errorf("stream open error: %w", err)
 	}
 	defer stream.Close()
@@ -193,6 +197,7 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 	stream.SetReadDeadline(time.Now().Add(2 * time.Second))
 	n, err := stream.Read(buf)
 	if err != nil && err != io.EOF {
+		fmt.Println("read error")
 		return nil, fmt.Errorf("read error: %w", err)
 	}
 
