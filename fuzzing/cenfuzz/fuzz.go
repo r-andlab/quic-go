@@ -8,7 +8,7 @@ import (
 	"io"
 	"context"
 	"math/rand"
-	"bytes"
+	//"bytes"
 
 	"github.com/r-andlab/quic-go/internal/protocol"
 	"github.com/r-andlab/quic-go/internal/wire"
