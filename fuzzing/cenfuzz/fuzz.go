@@ -73,7 +73,7 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 	}
 
 	if hdr.Length > 16383 {
-		return sendToServer(data, targetHost)
+		return SendToServer(data, targetHost)
 	}
 
 	b, err := extHdr.Append(nil, version)
@@ -95,25 +95,28 @@ func Fuzz(data []byte, targetHost string) ([]byte, error) {
 		}
 	}
 
-	return sendToServer(data, targetHost)
+	return SendToServer(data, targetHost)
 }
 
 
-func sendToServer(data []byte, targetHost string) ([]byte, error) {
+func SendToServer(data []byte, targetHost string) ([]byte, error) {
 	target := net.JoinHostPort(targetHost, "443")
 	udpAddr, err := net.ResolveUDPAddr("udp", target)
 	if err != nil {
+		fmt.Println("failed to resolve address ")
 		return nil, fmt.Errorf("failed to resolve address: %w", err)
 	}
 
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
+		fmt.Println("failed to dial UDP")
 		return nil, fmt.Errorf("failed to dial UDP: %w", err)
 	}
 	defer conn.Close()
 
 	_, err = conn.Write(data)
 	if err != nil {
+		fmt.Println("failed to write packet")
 		return nil, fmt.Errorf("failed to write packet: %w", err)
 	}
 
