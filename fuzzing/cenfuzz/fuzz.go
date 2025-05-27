@@ -220,37 +220,29 @@ func GenerateValidQUICInitialPacket() ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate SCID: %w", err)
 	}
 
-	// Construct header
-	initialHdr := &wire.ExtendedHeader{
-		Header: wire.Header{
-			IsLongHeader:     true,
-			Type:             protocol.PacketTypeInitial,
-			Version:          version,
-			DestConnectionID: protocol.ParseConnectionID(dcid),
-			SrcConnectionID:  protocol.ParseConnectionID(scid),
-			Token:            nil, // No token
-		},
-		PacketNumberLen:  protocol.PacketNumberLen2,
+	// Create Initial header
+	initialHdr := &wire.Initial{
+		Version:          version,
+		DestConnectionID: protocol.ParseConnectionID(dcid),
+		SrcConnectionID:  protocol.ParseConnectionID(scid),
+		Token:            []byte{},
 		PacketNumber:     0x1337,
+		PacketNumberLen:  protocol.PacketNumberLen2,
+		Length:           0, // will be updated after encoding
 	}
 
-	// Create dummy Initial payload
-	payload := []byte{0x01, 0x02, 0x03, 0x04} // You can use any small frame here
+	// Dummy payload
+	payload := []byte{0x01, 0x02, 0x03, 0x04}
 
-	// Set Length: header + payload + AEAD overhead (16 bytes typical)
-	headerLen := initialHdr.GetLength(version)
-	totalLen := headerLen + protocol.ByteCount(len(payload)) + 16 // AEAD overhead fudge factor
-
-	initialHdr.Length = totalLen - headerLen
-
-	// Encode the full packet
+	// Encode the header
 	var buf bytes.Buffer
-	if err := initialHdr.Write(&buf, version); err != nil {
-		return nil, fmt.Errorf("failed to write header: %w", err)
-	}
-	if _, err := buf.Write(payload); err != nil {
-		return nil, fmt.Errorf("failed to write payload: %w", err)
+	if err := initialHdr.Write(&buf, protocol.PerspectiveClient, version); err != nil {
+		return nil, fmt.Errorf("failed to write initial header: %w", err)
 	}
 
-	return buf.Bytes(), nil
+	// Add payload and simulate AEAD overhead (16 bytes)
+	packet := append(buf.Bytes(), payload...)
+	packet = append(packet, make([]byte, 16)...) // padding for AEAD
+
+	return packet, nil
 }
