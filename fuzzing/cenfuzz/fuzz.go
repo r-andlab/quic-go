@@ -8,7 +8,7 @@ import (
 	"io"
 	"context"
 	"math/rand"
-	//"bytes"
+	"bytes"
 
 	"github.com/r-andlab/quic-go/internal/protocol"
 	"github.com/r-andlab/quic-go/internal/wire"
@@ -209,8 +209,9 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 // this is my func to create a normal packet
 func GenerateValidQUICInitialPacket() ([]byte, error) {
 	const version = protocol.Version1
+	const minInitialSize = 1200
 
-	// Random DCID/SCID
+	// Generate random DCID/SCID
 	dcid := make([]byte, 8)
 	scid := make([]byte, 8)
 	if _, err := rand.Read(dcid); err != nil {
@@ -229,24 +230,34 @@ func GenerateValidQUICInitialPacket() ([]byte, error) {
 			Version:          version,
 			DestConnectionID: destCID,
 			SrcConnectionID:  srcCID,
-			Token:            []byte{},
+			Token:            []byte{}, // empty token
 		},
 		PacketNumberLen: protocol.PacketNumberLen2,
 		PacketNumber:    0x01,
 	}
 
-	payload := []byte{0xde, 0xad, 0xbe, 0xef} // Dummy frames
-	hdr.Length = protocol.ByteCount(len(payload) + 16) // Include AEAD tag
+	// Placeholder payload: dummy CRYPTO frame + padding
+	// NOTE: Replace this with a real TLS ClientHello in production
+	cryptoFrame := []byte{0x06, 0x01, 0x02, 0x03, 0x04} // fake CRYPTO frame
+	paddingLen := minInitialSize - len(cryptoFrame) - int(hdr.PacketNumberLen) - 16 // AEAD tag
+	if paddingLen < 0 {
+		return nil, fmt.Errorf("payload too large to pad")
+	}
+	padding := bytes.Repeat([]byte{0x00}, paddingLen)
 
-	// Generate header bytes
+	payload := append(cryptoFrame, padding...)
+
+	hdr.Length = protocol.ByteCount(len(payload) + int(hdr.PacketNumberLen) + 16)
+
+	// Write header to buffer
 	b, err := hdr.Append(nil, version)
 	if err != nil {
 		return nil, fmt.Errorf("header append failed: %w", err)
 	}
 
-	// Append payload and dummy AEAD tag
+	// Append payload and fake AEAD tag
 	b = append(b, payload...)
-	b = append(b, make([]byte, 16)...) // simulate AEAD tag
+	b = append(b, make([]byte, 16)...) // dummy AEAD tag
 
 	return b, nil
 }
