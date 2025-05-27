@@ -7,6 +7,8 @@ import (
 	"crypto/tls"
 	"io"
 	"context"
+	"math/rand"
+	"bytes"
 
 	"github.com/r-andlab/quic-go/internal/protocol"
 	"github.com/r-andlab/quic-go/internal/wire"
@@ -195,7 +197,6 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 	// Attempt to read server response
 	buf := make([]byte, 2048)
 	stream.SetReadDeadline(time.Now().Add(2 * time.Second))
-	fmt.Println("buf of singleInitalPacket = ", buf)
 	n, err := stream.Read(buf)
 	if err != nil && err != io.EOF {
 		fmt.Println("read error")
@@ -203,4 +204,53 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 	}
 
 	return buf[:n], nil
+}
+
+// this is my func to create a normal packet
+func GenerateValidQUICInitialPacket() ([]byte, error) {
+	const version = protocol.Version1
+
+	// Generate random DCID and SCID
+	dcid := make([]byte, 8)
+	scid := make([]byte, 8)
+	if _, err := rand.Read(dcid); err != nil {
+		return nil, fmt.Errorf("failed to generate DCID: %w", err)
+	}
+	if _, err := rand.Read(scid); err != nil {
+		return nil, fmt.Errorf("failed to generate SCID: %w", err)
+	}
+
+	// Construct header
+	initialHdr := &wire.ExtendedHeader{
+		Header: wire.Header{
+			IsLongHeader:     true,
+			Type:             protocol.PacketTypeInitial,
+			Version:          version,
+			DestConnectionID: protocol.ParseConnectionID(dcid),
+			SrcConnectionID:  protocol.ParseConnectionID(scid),
+			Token:            nil, // No token
+		},
+		PacketNumberLen:  protocol.PacketNumberLen2,
+		PacketNumber:     0x1337,
+	}
+
+	// Create dummy Initial payload
+	payload := []byte{0x01, 0x02, 0x03, 0x04} // You can use any small frame here
+
+	// Set Length: header + payload + AEAD overhead (16 bytes typical)
+	headerLen := initialHdr.GetLength(version)
+	totalLen := headerLen + protocol.ByteCount(len(payload)) + 16 // AEAD overhead fudge factor
+
+	initialHdr.Length = totalLen - headerLen
+
+	// Encode the full packet
+	var buf bytes.Buffer
+	if err := initialHdr.Write(&buf, version); err != nil {
+		return nil, fmt.Errorf("failed to write header: %w", err)
+	}
+	if _, err := buf.Write(payload); err != nil {
+		return nil, fmt.Errorf("failed to write payload: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
