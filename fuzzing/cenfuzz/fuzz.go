@@ -210,39 +210,43 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 func GenerateValidQUICInitialPacket() ([]byte, error) {
 	const version = protocol.Version1
 
-	// Generate random DCID and SCID
+	// Random DCID/SCID
 	dcid := make([]byte, 8)
 	scid := make([]byte, 8)
 	if _, err := rand.Read(dcid); err != nil {
-		return nil, fmt.Errorf("failed to generate DCID: %w", err)
+		return nil, fmt.Errorf("DCID gen failed: %w", err)
 	}
 	if _, err := rand.Read(scid); err != nil {
-		return nil, fmt.Errorf("failed to generate SCID: %w", err)
+		return nil, fmt.Errorf("SCID gen failed: %w", err)
 	}
 
-	// Create Initial header
-	initialHdr := &wire.Initial{
-		Version:          version,
-		DestConnectionID: protocol.ParseConnectionID(dcid),
-		SrcConnectionID:  protocol.ParseConnectionID(scid),
-		Token:            []byte{},
-		PacketNumber:     0x1337,
-		PacketNumberLen:  protocol.PacketNumberLen2,
-		Length:           0, // will be updated after encoding
+	destCID := protocol.ParseConnectionID(dcid)
+	srcCID := protocol.ParseConnectionID(scid)
+
+	hdr := &wire.ExtendedHeader{
+		Header: wire.Header{
+			Type:             protocol.PacketTypeInitial,
+			Version:          version,
+			DestConnectionID: destCID,
+			SrcConnectionID:  srcCID,
+			Token:            []byte{},
+		},
+		PacketNumberLen: protocol.PacketNumberLen2,
+		PacketNumber:    0x01,
 	}
 
-	// Dummy payload
-	payload := []byte{0x01, 0x02, 0x03, 0x04}
+	payload := []byte{0xde, 0xad, 0xbe, 0xef} // Dummy frames
+	hdr.Length = protocol.ByteCount(len(payload) + 16) // Include AEAD tag
 
-	// Encode the header
-	var buf bytes.Buffer
-	if err := initialHdr.Write(&buf, protocol.PerspectiveClient, version); err != nil {
-		return nil, fmt.Errorf("failed to write initial header: %w", err)
+	// Generate header bytes
+	b, err := hdr.Append(nil, version)
+	if err != nil {
+		return nil, fmt.Errorf("header append failed: %w", err)
 	}
 
-	// Add payload and simulate AEAD overhead (16 bytes)
-	packet := append(buf.Bytes(), payload...)
-	packet = append(packet, make([]byte, 16)...) // padding for AEAD
+	// Append payload and dummy AEAD tag
+	b = append(b, payload...)
+	b = append(b, make([]byte, 16)...) // simulate AEAD tag
 
-	return packet, nil
+	return b, nil
 }
