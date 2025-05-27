@@ -195,6 +195,7 @@ func SendInitialQUICPacket(target string) ([]byte, error) {
 	// Attempt to read server response
 	buf := make([]byte, 2048)
 	stream.SetReadDeadline(time.Now().Add(2 * time.Second))
+	fmt.Println("buf of singleInitalPacket = ", buf)
 	n, err := stream.Read(buf)
 	if err != nil && err != io.EOF {
 		fmt.Println("read error")
